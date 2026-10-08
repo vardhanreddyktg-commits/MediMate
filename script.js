@@ -123,6 +123,7 @@ document.addEventListener('click',e=>{
   else if(a==='quick'){if(!getTimes().includes(b.dataset.t))timeRow(b.dataset.t)}
   else if(a==='rmtime')b.parentElement.remove();
   else if(a==='export')exportData();
+  else if(a==='delprof')deleteProfile();
   else if(a==='import')$('#imp').click();
   else if(a==='remind-on')Notification.requestPermission().then(p=>{S.remind=p==='granted';save();render();
     if(S.remind)showNote('MediMate reminders are on',{body:'You will get a notification at every dose time.',tag:'test',icon:'icon-192.png'})});
@@ -173,6 +174,30 @@ const qs=new URLSearchParams(location.search);
 if(qs.get('act')){handleAct(qs.get('act'),qs.get('m'),qs.get('t'),qs.get('d'));history.replaceState(null,'',location.pathname)}
 setInterval(checkDue,30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){checkDue();render()}});
+
+/* ---------- Delete person (two taps, no pop-up box) ---------- */
+let delFor=null,delTimer=0;
+function resetDel(){
+  clearTimeout(delTimer);delFor=null;
+  const b=document.querySelector('[data-a=delprof]');if(b)b.textContent='Delete this person';
+}
+function deleteProfile(){
+  if(S.profiles.length<2){say('You need at least one person. Add another person first.');return}
+  const p=S.profiles.find(x=>x.id===S.cur);
+  const ids=S.meds.filter(m=>m.profileId===p.id).map(m=>m.id);
+  if(delFor!==p.id){                       // first tap: ask to confirm
+    resetDel();delFor=p.id;
+    document.querySelector('[data-a=delprof]').textContent='Tap again to delete '+p.name+' and '+ids.length+' medicine'+(ids.length===1?'':'s');
+    delTimer=setTimeout(resetDel,5000);    // goes back to normal after 5 seconds
+    return;
+  }
+  resetDel();                              // second tap: delete
+  S.meds=S.meds.filter(m=>m.profileId!==p.id);
+  S.logs=S.logs.filter(l=>!ids.includes(l.medId));
+  S.profiles=S.profiles.filter(x=>x.id!==p.id);
+  S.cur=S.profiles[0].id;
+  save();render();say(p.name+' was deleted.');
+}
 
 /* ---------- Backup and restore ---------- */
 function say(t){$('#msg').textContent=t;setTimeout(()=>{$('#msg').textContent=''},5000)}
