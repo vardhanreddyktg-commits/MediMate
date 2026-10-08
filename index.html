@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MediMate: Family Medicine Cabinet</title>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f6b63">
+<link rel="icon" href="icon-192.png">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>MediMate</h1>
+    <div class="act"><select id="prof" aria-label="Whose medicines"></select><button class="ghost" data-a="addprof" aria-label="Add family member">+ Person</button></div>
+  </header>
+  <div class="tabs" role="tablist">
+    <button class="tab" data-a="tab" data-t="today">Today</button>
+    <button class="tab" data-a="tab" data-t="cabinet">Cabinet</button>
+  </div>
+  <main id="view"></main>
+  <p class="foot">MediMate is a reminder and organiser. It does not give medical advice. Ask a doctor or pharmacist about your medicines.</p>
+  <div class="act" style="justify-content:center;margin-top:12px"><button class="ghost" data-a="export">Download backup</button><button class="ghost" data-a="import">Restore backup</button></div>
+  <p class="foot" id="msg" role="status"></p>
+  <input type="file" id="imp" accept="application/json" hidden>
+</div>
+<button class="fab" data-a="addmed">+ Add medicine</button>
+
+<dialog id="dm">
+  <form id="mf">
+    <h2 id="mt" style="margin-top:0">Add medicine</h2>
+    <input type="hidden" name="mid">
+    <label for="nm">Medicine name</label><input id="nm" name="nm" required placeholder="e.g. Metformin">
+    <div class="two">
+      <div><label for="str">Strength</label><input id="str" name="str" placeholder="500 mg"></div>
+      <div><label for="exp">Expiry (month and year)</label><input id="exp" name="exp" type="month" required placeholder="YYYY-MM"></div>
+      <div><label for="qty">Units in stock</label><input id="qty" name="qty" type="number" min="0" step="any" required></div>
+      <div><label for="dose">Units per dose</label><input id="dose" name="dose" type="number" min="0.25" step="any" value="1"></div>
+    </div>
+    <label>Take at (add as many times as you need)</label>
+    <div id="times"></div>
+    <div class="act" style="justify-content:flex-start;margin-top:6px">
+      <button type="button" class="ghost" data-a="addtime">+ Add a time</button>
+      <button type="button" class="ghost" data-a="quick" data-t="08:00">+ Morning</button>
+      <button type="button" class="ghost" data-a="quick" data-t="14:00">+ Afternoon</button>
+      <button type="button" class="ghost" data-a="quick" data-t="21:00">+ Night</button>
+    </div>
+    <label for="notes">Note</label><input id="notes" name="notes" placeholder="After food">
+    <div class="row" style="margin-top:18px">
+      <button type="button" class="ghost" id="del" hidden>Delete</button>
+      <div class="act" style="margin-left:auto"><button type="button" class="ghost" data-a="close">Cancel</button><button type="submit">Save medicine</button></div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dp">
+  <form id="pf">
+    <h2 style="margin-top:0">Add family member</h2>
+    <label for="pn">Name</label><input id="pn" name="pn" required placeholder="e.g. Dad">
+    <label for="pr">Relation</label><input id="pr" name="pr" placeholder="Father">
+    <div class="act" style="margin-top:18px;justify-content:flex-end"><button type="button" class="ghost" data-a="close">Cancel</button><button type="submit">Save person</button></div>
+  </form>
+</dialog>
+
+<script src="script.js"></script>
+</body>
+</html>
