@@ -127,6 +127,16 @@ function parseExpiry(raw){
   return '';
 }
 function monthDate(y,mo){const month=+mo,year=+y;return year>=2000&&month>=1&&month<=12?iso(new Date(year,month,0)):''}
+function expiryFromOcr(text){
+  const lines=String(text||'').toUpperCase().split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  const expiryLine=lines.find(line=>/(EXP|EXPIR|EXPIRY|EXPIRES|USE BY|BEST BEFORE|BBE)/.test(line));
+  if(expiryLine){
+    const expiry=parseExpiry(expiryLine);
+    if(expiry)return expiry;
+  }
+  const dates=lines.map(parseExpiry).filter(Boolean);
+  return dates.length===1?dates[0]:'';
+}
 function validDate(y,mo,d){
   const x=new Date(+y,+mo-1,+d);
   return x.getFullYear()===+y&&x.getMonth()===+mo-1&&x.getDate()===+d?y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0'):'';
@@ -169,7 +179,7 @@ async function runExpiryOcr(video,status){
       if(x.status==='recognizing text'&&x.progress)status.textContent='Reading expiry date... '+Math.round(x.progress*100)+'%';
     }});
     if(!scanStream)return;
-    const expiry=parseExpiry(result.data.text);
+    const expiry=expiryFromOcr(result.data.text);
     if(expiry){$('#exp').value=expiry;status.textContent='Expiry found: '+expiry;setTimeout(stopScanner,700)}
     else status.textContent='No expiry found. Move closer, improve lighting, and try again.';
   }catch(e){if(scanStream)status.textContent='Could not read the text. Try again with the date in focus.'}
