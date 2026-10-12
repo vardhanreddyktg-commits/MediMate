@@ -1,5 +1,6 @@
 const KEY='medimate:v1';
-const norm=s=>Object.assign({notified:{},snooze:{},remind:false},s);
+const monthEnd=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})$/);return m?m[1]+'-'+m[2]+'-'+String(new Date(+m[1],+m[2],0).getDate()).padStart(2,'0'):v};
+const norm=s=>{const x=Object.assign({notified:{},snooze:{},remind:false},s);x.meds=(x.meds||[]).map(m=>Object.assign({},m,{expiry:monthEnd(m.expiry)}));return x};
 function load(){try{const r=localStorage.getItem(KEY);if(r)return norm(JSON.parse(r))}catch(e){}
   return norm({profiles:[{id:'p1',name:'Me',rel:'Self'}],meds:[],logs:[],cur:'p1'})}
 let S=load(),tab='today',SWREG=null;
@@ -80,7 +81,7 @@ function undoPrn(mid){
 function card(m){
   const d=dleft(m.expiry),s=supply(m);
   return `<div class="card row s-${stat(m)}"><div><b>${esc(m.name)}</b> <span class="mu">${esc(m.strength)}</span>
-  <div class="mu">Expires ${m.expiry.slice(0,7)}, ${d<0?Math.abs(d)+' days ago':d+' days left'}</div>
+  <div class="mu">Expires ${dshow(m.expiry)}, ${d<0?Math.abs(d)+' days ago':d+' days left'}</div>
   <div class="mu">${m.qty} in stock${s!==null?', about '+s+' days of supply':''}</div>
   <div class="mu">${esc(medLine(m))}</div></div>
   <button class="ghost" data-a="edit" data-m="${m.id}">Edit</button></div>`;
@@ -105,6 +106,51 @@ function render(){
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
   $('#view').innerHTML=tab==='today'?todayView():cabinetView();
 }
+let scanStream=null,scanTimer=0;
+function parseExpiry(raw){
+  const s=String(raw||'').trim(), gs1=s.match(/(?:\(|\x1d|^)17\)?(\d{6})/)||s.match(/17(\d{6})/);
+  if(gs1){
+    const yy=+gs1[1].slice(0,2),mo=+gs1[1].slice(2,4),day=+gs1[1].slice(4,6);
+    if(mo>=1&&mo<=12){const year=2000+yy,last=new Date(year,mo,0).getDate();return validDate(year,mo,day||last)}
+  }
+  let m=s.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})$/);
+  if(m)return validDate(m[1],m[2],m[3]);
+  m=s.match(/^(\d{2})[-/.](\d{2})[-/.](\d{4})$/);
+  if(m)return validDate(m[3],m[2],m[1]);
+  return '';
+}
+function validDate(y,mo,d){
+  const x=new Date(+y,+mo-1,+d);
+  return x.getFullYear()===+y&&x.getMonth()===+mo-1&&x.getDate()===+d?y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0'):'';
+}
+function stopScanner(){
+  clearTimeout(scanTimer);
+  if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null}
+  const d=$('#ds');if(d.open)d.close();
+}
+async function startScanner(){
+  if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    say('Camera scanning requires HTTPS or localhost.');return;
+  }
+  if(!('BarcodeDetector' in window)){say('This browser does not support camera barcode scanning. Try Chrome or Edge on Android.');return}
+  const status=$('#scan-status'),video=$('#scanner-video');
+  $('#ds').showModal();status.textContent='Starting camera...';
+  try{
+    const detector=new BarcodeDetector();
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+    video.srcObject=scanStream;await video.play();status.textContent='Scanning...';
+    const scan=async()=>{
+      if(!scanStream)return;
+      try{
+        const codes=await detector.detect(video),expiry=codes.map(x=>parseExpiry(x.rawValue)).find(Boolean);
+        if(expiry){$('#exp').value=expiry;status.textContent='Expiry found: '+expiry;setTimeout(stopScanner,700);return}
+        if(codes.length)status.textContent='Code detected, but it does not contain a readable expiry date.';
+      }catch(e){status.textContent='Keep the code inside the camera view.'}
+      scanTimer=setTimeout(scan,350);
+    };
+    scan();
+  }catch(e){stopScanner();say(e.name==='NotAllowedError'?'Camera permission was denied.':'Could not start the camera scanner.')}
+}
 function setDose(mid,t,st){
   const m=S.meds.find(x=>x.id===mid),d=TODAY();
   let l=S.logs.find(x=>x.medId===mid&&x.date===d&&x.time===t);
@@ -126,7 +172,7 @@ function openForm(id){
   $('#mt').textContent=id?'Edit medicine':'Add medicine';
   if(id){
     const m=S.meds.find(x=>x.id===id);
-    f.nm.value=m.name;f.str.value=m.strength;f.qty.value=m.qty;f.dose.value=m.dose;f.exp.value=m.expiry.slice(0,7);f.notes.value=m.notes;
+    f.nm.value=m.name;f.str.value=m.strength;f.qty.value=m.qty;f.dose.value=m.dose;f.exp.value=m.expiry;f.notes.value=m.notes;
     setTimes(m.times);f.prn.checked=!!m.asNeeded;f.gap.value=m.gap||'';
   }else setTimes(['08:00']);
   togglePrn();
@@ -135,9 +181,8 @@ function openForm(id){
 $('#mf').onsubmit=e=>{
   e.preventDefault();const f=e.target;
   const asN=f.prn.checked,times=asN?[]:getTimes();
-  const [y,mo]=f.exp.value.split('-').map(Number);
   const o={name:f.nm.value.trim(),strength:f.str.value.trim(),qty:+f.qty.value,dose:+f.dose.value||1,
-    expiry:iso(new Date(y,mo,0)),times:times,notes:f.notes.value.trim(),asNeeded:asN,gap:asN?+f.gap.value:null};
+    expiry:f.exp.value,times:times,notes:f.notes.value.trim(),asNeeded:asN,gap:asN?+f.gap.value:null};
   if(f.mid.value)Object.assign(S.meds.find(x=>x.id===f.mid.value),o);else S.meds.push({id:uid(),profileId:S.cur,created:TODAY(),...o});
   save();$('#dm').close();render();
 };
@@ -161,6 +206,8 @@ document.addEventListener('click',e=>{
   else if(a==='edit')openForm(b.dataset.m);
   else if(a==='addprof')$('#dp').showModal();
   else if(a==='close')b.closest('dialog').close();
+  else if(a==='scan')startScanner();
+  else if(a==='close-scan')stopScanner();
   else if(a==='dose')setDose(b.dataset.m,b.dataset.t,b.dataset.s);
   else if(a==='addtime')timeRow('').querySelector('input').focus();
   else if(a==='quick'){if(!getTimes().includes(b.dataset.t))timeRow(b.dataset.t)}
@@ -277,7 +324,7 @@ $('#prn').onchange=togglePrn;
 function summaryHtml(){
   const p=S.profiles.find(x=>x.id===S.cur),meds=S.meds.filter(m=>m.profileId===S.cur),st=stats(meds);
   const pct=st.planned?Math.round(st.taken/st.planned*100)+'% ('+st.taken+' of '+st.planned+' scheduled doses)':'no scheduled doses';
-  const rows=meds.map(m=>`<tr><td>${esc(m.name)} ${esc(m.strength)}</td><td>${esc(medLine(m))}${m.notes?'<br>'+esc(m.notes):''}</td><td>${m.qty}</td><td>${m.expiry.slice(0,7)}</td></tr>`).join('');
+  const rows=meds.map(m=>`<tr><td>${esc(m.name)} ${esc(m.strength)}</td><td>${esc(medLine(m))}${m.notes?'<br>'+esc(m.notes):''}</td><td>${m.qty}</td><td>${dshow(m.expiry)}</td></tr>`).join('');
   return `<h1>Medicine summary</h1><p><b>${esc(p.name)}</b>${p.rel?' ('+esc(p.rel)+')':''}<br>Date: ${new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})}</p>
   <table><tr><th>Medicine</th><th>How to take</th><th>Stock</th><th>Expiry</th></tr>${rows||'<tr><td colspan="4">No medicines added.</td></tr>'}</table>
   <p>Doses taken in the last 7 days: ${pct}.</p><p><small>Made with MediMate, a reminder and organiser. It is not medical advice.</small></p>`;
