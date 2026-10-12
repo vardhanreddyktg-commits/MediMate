@@ -123,7 +123,7 @@ function alerts() {
     : '';
 }
 
-function stats(meds, days = 7) {
+function stats(meds, days = 30) {
   const ids = new Set(meds.map(m => m.id));
   let planned = 0, taken = 0;
 
