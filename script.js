@@ -1,6 +1,7 @@
 const KEY='medimate:v1';
+const expiryMonth=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})/);return m?m[1]+'-'+m[2]:v};
 const monthEnd=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})$/);return m?m[1]+'-'+m[2]+'-'+String(new Date(+m[1],+m[2],0).getDate()).padStart(2,'0'):v};
-const norm=s=>{const x=Object.assign({notified:{},snooze:{},remind:false},s);x.meds=(x.meds||[]).map(m=>Object.assign({},m,{expiry:monthEnd(m.expiry)}));return x};
+const norm=s=>{const x=Object.assign({notified:{},snooze:{},remind:false},s);x.meds=(x.meds||[]).map(m=>Object.assign({},m,{expiry:expiryMonth(m.expiry)}));return x};
 function load(){try{const r=localStorage.getItem(KEY);if(r)return norm(JSON.parse(r))}catch(e){}
   return norm({profiles:[{id:'p1',name:'Me',rel:'Self'}],meds:[],logs:[],cur:'p1'})}
 let S=load(),tab='today',SWREG=null;
@@ -9,14 +10,14 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const TODAY=()=>iso(new Date());
-const dleft=e=>Math.round((new Date(e+'T00:00')-new Date(TODAY()+'T00:00'))/864e5);
+const dleft=e=>Math.round((new Date(monthEnd(e)+'T00:00')-new Date(TODAY()+'T00:00'))/864e5);
 const uid=()=>Math.random().toString(36).slice(2,9);
 const stat=m=>{const d=dleft(m.expiry);return d<0?'expired':d<=30?'soon':'safe'};
 const supply=m=>m.asNeeded||!m.times.length?null:Math.floor(m.qty/(m.dose*m.times.length));
 const pname=id=>(S.profiles.find(p=>p.id===id)||{}).name||'';
 const empty=t=>`<div class="empty">${esc(t)}</div>`;
 const addDays=(d,n)=>{const x=new Date(d+'T00:00');x.setDate(x.getDate()+n);return iso(x)};
-const dshow=d=>new Date(d+'T00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+const dshow=d=>{const m=String(d||'').match(/^(\d{4})-(\d{2})/);return m?new Date(+m[1],+m[2]-1,1).toLocaleDateString('en-IN',{month:'short',year:'numeric'}):d};
 const medLine=m=>m.asNeeded?'only when needed, at least '+m.gap+' hours apart':(m.times.map(fmt).join(', ')||'no fixed times');
 
 function alerts(){
@@ -126,7 +127,7 @@ function parseExpiry(raw){
   if(m)return monthDate(m[2].length===2?'20'+m[2]:m[2],months[m[1]]);
   return '';
 }
-function monthDate(y,mo){const month=+mo,year=+y;return year>=2000&&month>=1&&month<=12?iso(new Date(year,month,0)):''}
+function monthDate(y,mo){const month=+mo,year=+y;return year>=2000&&month>=1&&month<=12?year+'-'+String(month).padStart(2,'0'):''}
 function expiryFromOcr(text){
   const lines=String(text||'').toUpperCase().split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   const expiryLine=lines.find(line=>/(EXP|EXPIR|EXPIRY|EXPIRES|USE BY|BEST BEFORE|BBE)/.test(line));
@@ -139,7 +140,7 @@ function expiryFromOcr(text){
 }
 function validDate(y,mo,d){
   const x=new Date(+y,+mo-1,+d);
-  return x.getFullYear()===+y&&x.getMonth()===+mo-1&&x.getDate()===+d?y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0'):'';
+  return x.getFullYear()===+y&&x.getMonth()===+mo-1&&x.getDate()===+d?y+'-'+String(mo).padStart(2,'0'):'';
 }
 function stopScanner(){
   clearTimeout(scanTimer);
