@@ -108,17 +108,25 @@ function render(){
 }
 let scanStream=null,scanTimer=0;
 function parseExpiry(raw){
-  const s=String(raw||'').trim(), gs1=s.match(/(?:\(|\x1d|^)17\)?(\d{6})/)||s.match(/17(\d{6})/);
+  const s=String(raw||'').trim().toUpperCase().replace(/\s+/g,' '), gs1=s.match(/(?:\(|\x1d|^)17\)?(\d{6})/)||s.match(/17(\d{6})/);
   if(gs1){
     const yy=+gs1[1].slice(0,2),mo=+gs1[1].slice(2,4),day=+gs1[1].slice(4,6);
     if(mo>=1&&mo<=12){const year=2000+yy,last=new Date(year,mo,0).getDate();return validDate(year,mo,day||last)}
   }
-  let m=s.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})$/);
+  let m=s.match(/(?:^|[^0-9])(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[^0-9]|$)/);
   if(m)return validDate(m[1],m[2],m[3]);
-  m=s.match(/^(\d{2})[-/.](\d{2})[-/.](\d{4})$/);
+  m=s.match(/(?:^|[^0-9])(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})(?:[^0-9]|$)/);
   if(m)return validDate(m[3],m[2],m[1]);
+  m=s.match(/(?:EXP(?:IRY|IRES)?|USE BY|BEST BEFORE|BBE?)?[^0-9](\d{1,2})[-/.](\d{4})(?:[^0-9]|$)/);
+  if(m)return monthDate(m[2],m[1]);
+  m=s.match(/(?:EXP(?:IRY|IRES)?|USE BY|BEST BEFORE|BBE?)?[^0-9](\d{1,2})[-/.](\d{2})(?:[^0-9]|$)/);
+  if(m)return monthDate('20'+m[2],m[1]);
+  const months={JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
+  m=s.match(/\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*[ -/]?(\d{2,4})\b/);
+  if(m)return monthDate(m[2].length===2?'20'+m[2]:m[2],months[m[1]]);
   return '';
 }
+function monthDate(y,mo){const month=+mo,year=+y;return year>=2000&&month>=1&&month<=12?iso(new Date(year,month,0)):''}
 function validDate(y,mo,d){
   const x=new Date(+y,+mo-1,+d);
   return x.getFullYear()===+y&&x.getMonth()===+mo-1&&x.getDate()===+d?y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0'):'';
@@ -132,17 +140,18 @@ async function startScanner(){
   if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
     say('Camera scanning requires HTTPS or localhost.');return;
   }
-  if(!('BarcodeDetector' in window)){say('This browser does not support camera barcode scanning. Try Chrome or Edge on Android.');return}
+  if(!window.Tesseract){say('OCR is still loading. Check your internet connection and try again.');return}
   const status=$('#scan-status'),video=$('#scanner-video');
   $('#ds').showModal();status.textContent='Starting camera...';
   try{
-    const detector=new BarcodeDetector();
+    const detector='BarcodeDetector' in window?new BarcodeDetector():null;
     scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
-    video.srcObject=scanStream;await video.play();status.textContent='Scanning...';
+    video.srcObject=scanStream;await video.play();status.textContent='Reading the printed expiry date...';
+    runExpiryOcr(video,status);
     const scan=async()=>{
       if(!scanStream)return;
       try{
-        const codes=await detector.detect(video),expiry=codes.map(x=>parseExpiry(x.rawValue)).find(Boolean);
+        const codes=detector?await detector.detect(video):[],expiry=codes.map(x=>parseExpiry(x.rawValue)).find(Boolean);
         if(expiry){$('#exp').value=expiry;status.textContent='Expiry found: '+expiry;setTimeout(stopScanner,700);return}
         if(codes.length)status.textContent='Code detected, but it does not contain a readable expiry date.';
       }catch(e){status.textContent='Keep the code inside the camera view.'}
@@ -150,6 +159,20 @@ async function startScanner(){
     };
     scan();
   }catch(e){stopScanner();say(e.name==='NotAllowedError'?'Camera permission was denied.':'Could not start the camera scanner.')}
+}
+async function runExpiryOcr(video,status){
+  const canvas=document.createElement('canvas'),max=1280,scale=Math.min(1,max/video.videoWidth);
+  canvas.width=Math.round(video.videoWidth*scale);canvas.height=Math.round(video.videoHeight*scale);
+  canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+  try{
+    const result=await Tesseract.recognize(canvas,'eng',{logger:x=>{
+      if(x.status==='recognizing text'&&x.progress)status.textContent='Reading expiry date... '+Math.round(x.progress*100)+'%';
+    }});
+    if(!scanStream)return;
+    const expiry=parseExpiry(result.data.text);
+    if(expiry){$('#exp').value=expiry;status.textContent='Expiry found: '+expiry;setTimeout(stopScanner,700)}
+    else status.textContent='No expiry found. Move closer, improve lighting, and try again.';
+  }catch(e){if(scanStream)status.textContent='Could not read the text. Try again with the date in focus.'}
 }
 function setDose(mid,t,st){
   const m=S.meds.find(x=>x.id===mid),d=TODAY();
