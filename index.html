@@ -35,7 +35,7 @@
     <label for="nm">Medicine name</label><input id="nm" name="nm" required placeholder="e.g. Metformin">
     <div class="two">
       <div><label for="str">Strength</label><input id="str" name="str" placeholder="500 mg"></div>
-      <div><label for="exp">Expiry (month and year)</label><input id="exp" name="exp" type="month" required placeholder="YYYY-MM"></div>
+      <div><label for="exp">Expiry date</label><div class="scanfield"><input id="exp" name="exp" type="date" required><button type="button" class="ghost" data-a="scan" aria-label="Scan expiry date">Scan</button></div></div>
       <div><label for="qty">Units in stock</label><input id="qty" name="qty" type="number" min="0" step="any" required></div>
       <div><label for="dose">Units per dose</label><input id="dose" name="dose" type="number" min="0.25" step="any" value="1"></div>
     </div>
@@ -56,6 +56,15 @@
       <div class="act" style="margin-left:auto"><button type="button" class="ghost" data-a="close">Cancel</button><button type="submit">Save medicine</button></div>
     </div>
   </form>
+</dialog>
+
+<dialog id="ds">
+  <div class="scanner">
+    <h2 style="margin-top:0">Scan expiry date</h2>
+    <video id="scanner-video" autoplay muted playsinline></video>
+    <p id="scan-status" class="mu">Point the camera at a medicine barcode or 2D code containing an expiry date.</p>
+    <div class="act" style="justify-content:flex-end"><button type="button" class="ghost" data-a="close-scan">Cancel</button></div>
+  </div>
 </dialog>
 
 <dialog id="dp">
