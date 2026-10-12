@@ -62,7 +62,7 @@
   <div class="scanner">
     <h2 style="margin-top:0">Scan expiry date</h2>
     <video id="scanner-video" autoplay muted playsinline></video>
-    <p id="scan-status" class="mu">Point the camera at a medicine barcode or 2D code containing an expiry date.</p>
+    <p id="scan-status" class="mu">Point the camera at the printed expiry date. Keep it steady and well lit.</p>
     <div class="act" style="justify-content:flex-end"><button type="button" class="ghost" data-a="close-scan">Cancel</button></div>
   </div>
 </dialog>
@@ -77,6 +77,7 @@
 </dialog>
 
 <div id="print"></div>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
