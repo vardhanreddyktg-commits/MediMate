@@ -40,3 +40,16 @@ label{display:block;font-weight:700;margin:12px 0 4px}
 .foot{margin-top:28px;font-size:.85rem;color:var(--mu);text-align:center}
 .trow{display:flex;gap:8px;margin:6px 0}.trow input{flex:1}
 .row button{white-space:nowrap}
+
+.inl{display:flex;align-items:center;gap:8px;font-weight:400}.inl input{width:auto}
+button:disabled{opacity:.5;cursor:not-allowed}
+dialog{max-height:92vh;overflow:auto}
+#print{display:none}
+@media print{
+  body>*:not(#print){display:none!important}
+  body{background:#fff}
+  #print{display:block;color:#000;background:#fff;font:12pt/1.4 "Times New Roman",serif}
+  #print h1{font-size:18pt;margin:0 0 8px}
+  #print table{width:100%;border-collapse:collapse;margin:10px 0}
+  #print th,#print td{border:1px solid #444;padding:4px 6px;text-align:left;vertical-align:top}
+}
