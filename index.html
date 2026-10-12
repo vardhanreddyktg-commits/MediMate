@@ -35,7 +35,7 @@
     <label for="nm">Medicine name</label><input id="nm" name="nm" required placeholder="e.g. Metformin">
     <div class="two">
       <div><label for="str">Strength</label><input id="str" name="str" placeholder="500 mg"></div>
-      <div><label for="exp">Expiry date</label><div class="scanfield"><input id="exp" name="exp" type="date" required><button type="button" class="ghost" data-a="scan" aria-label="Scan expiry date">Scan</button></div></div>
+      <div><label for="exp">Expiry (month and year)</label><div class="scanfield"><input id="exp" name="exp" type="month" required placeholder="YYYY-MM"><button type="button" class="ghost" data-a="scan" aria-label="Scan expiry date">Scan</button></div></div>
       <div><label for="qty">Units in stock</label><input id="qty" name="qty" type="number" min="0" step="any" required></div>
       <div><label for="dose">Units per dose</label><input id="dose" name="dose" type="number" min="0.25" step="any" value="1"></div>
     </div>
