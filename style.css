@@ -65,3 +65,8 @@ body.locked .wrap,body.locked .fab{display:none}
 #boot{display:none}
 body.booting #boot{display:block}
 body.booting .authbox>:not(h1):not(#boot){display:none}
+
+.al{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.al button{padding:6px 10px;font-size:.85rem}
+a.btn{display:inline-block;background:var(--pri);color:var(--onpri);font-weight:700;padding:10px 16px;border-radius:10px;text-decoration:none}
+a.btn.ghostbtn{background:transparent;color:var(--pri);border:1.5px solid var(--bd)}
