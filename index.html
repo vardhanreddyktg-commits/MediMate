@@ -1,151 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>MediMate: Family Medicine Cabinet</title>
-
-  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0f6b63">
-  <link rel="icon" href="icon-192.png">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MediMate: Family Medicine Cabinet</title>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f6b63">
+<link rel="icon" href="icon-192.png">
 </head>
-
-<body>
-  <div class="wrap">
-    <header>
-      <h1>MediMate</h1>
-      <div class="act">
-        <select id="prof" aria-label="Whose medicines"></select>
-        <button class="ghost" data-a="addprof" aria-label="Add family member">+ Person</button>
-      </div>
-    </header>
-
-    <div class="tabs" role="tablist">
-      <button class="tab" data-a="tab" data-t="today">Today</button>
-      <button class="tab" data-a="tab" data-t="cabinet">Cabinet</button>
-    </div>
-
-    <main id="view"></main>
-
-    <p class="foot">
-      MediMate is a reminder and organiser. It does not give medical advice.
-      Ask a doctor or pharmacist about your medicines.
-    </p>
-
-    <div class="act" style="justify-content:center;margin-top:12px">
-      <button class="ghost" data-a="export">Download backup</button>
-      <button class="ghost" data-a="import">Restore backup</button>
-      <button class="ghost" data-a="delprof">Delete this person</button>
-    </div>
-
-    <p class="foot" id="msg" role="status"></p>
-    <input type="file" id="imp" accept="application/json" hidden>
+<body class="locked booting">
+<section id="auth">
+  <div class="authbox">
+    <h1>MediMate</h1>
+    <p class="mu" id="boot">Loading...</p>
+    <p class="mu" id="authsub">Log in to see your family medicines on any device.</p>
+    <div class="tabs" id="authtabs"><button type="button" class="atab on" data-a="authmode" data-m="login">Log in</button><button type="button" class="atab" data-a="authmode" data-m="signup">Create account</button></div>
+    <form id="authform">
+      <div id="emailrow"><label for="aemail">Email</label><input id="aemail" type="email" autocomplete="email" required></div>
+      <label for="apw" id="pwlabel">Password</label><input id="apw" type="password" minlength="6" autocomplete="current-password" required>
+      <button type="submit" id="authgo" style="width:100%;margin-top:16px">Log in</button>
+    </form>
+    <p class="mu" id="authmsg" role="status"></p>
+    <button type="button" class="ghost" id="forgot" style="width:100%">Forgot password?</button>
+    <p class="foot">MediMate is a reminder and organiser. It does not give medical advice.</p>
   </div>
+</section>
+<div class="wrap">
+  <header>
+    <h1>MediMate</h1>
+    <div class="act"><select id="prof" aria-label="Whose medicines"></select><button class="ghost" data-a="addprof" aria-label="Add family member">+ Person</button></div>
+  </header>
+  <div class="tabs" role="tablist">
+    <button class="tab" data-a="tab" data-t="today">Today</button>
+    <button class="tab" data-a="tab" data-t="cabinet">Cabinet</button>
+  </div>
+  <main id="view"></main>
+  <p class="foot">MediMate is a reminder and organiser. It does not give medical advice. Ask a doctor or pharmacist about your medicines.</p>
+  <div class="act" style="justify-content:center;margin-top:12px"><button class="ghost" data-a="delprof">Delete this person</button><button class="ghost" data-a="logout">Log out</button></div>
+  <p class="foot" id="who"></p>
+  <p class="foot" id="msg" role="status"></p>
+</div>
+<button class="fab" data-a="addmed">+ Add medicine</button>
 
-  <button class="fab" data-a="addmed">+ Add medicine</button>
-
-  <dialog id="dm">
-    <form id="mf">
-      <h2 id="mt" style="margin-top:0">Add medicine</h2>
-      <input type="hidden" name="mid">
-
-      <label for="nm">Medicine name</label>
-      <input id="nm" name="nm" required placeholder="e.g. Metformin">
-
-      <div class="two">
-        <div>
-          <label for="str">Strength</label>
-          <input id="str" name="str" placeholder="500 mg">
-        </div>
-
-        <div>
-          <label for="exp">Expiry (month and year)</label>
-          <div class="scanfield">
-            <input id="exp" name="exp" type="month" required>
-            <button type="button" class="ghost" data-a="scan" aria-label="Scan expiry date">Scan</button>
-          </div>
-        </div>
-
-        <div>
-          <label for="qty">Units in stock</label>
-          <input id="qty" name="qty" type="number" min="0" step="any" required>
-        </div>
-
-        <div>
-          <label for="dose">Units per dose</label>
-          <input id="dose" name="dose" type="number" min="0.25" step="any" value="1">
-        </div>
-      </div>
-
-      <label class="inl">
-        <input type="checkbox" id="prn" name="prn">
-        Only when needed (no fixed times)
-      </label>
-
-      <div id="prnbox" hidden>
-        <label for="gap">Minimum gap between doses (hours)</label>
-        <input id="gap" name="gap" type="number" min="0.5" step="any" placeholder="Follow your prescription">
-      </div>
-
-      <div id="schedbox">
-        <label>Take at (add as many times as you need)</label>
-        <div id="times"></div>
-
-        <div class="act" style="justify-content:flex-start;margin-top:6px">
-          <button type="button" class="ghost" data-a="addtime">+ Add a time</button>
-          <button type="button" class="ghost" data-a="quick" data-t="08:00">+ Morning</button>
-          <button type="button" class="ghost" data-a="quick" data-t="14:00">+ Afternoon</button>
-          <button type="button" class="ghost" data-a="quick" data-t="21:00">+ Night</button>
-        </div>
-      </div>
-
-      <label for="notes">Note</label>
-      <input id="notes" name="notes" placeholder="After food">
-
-      <div class="row" style="margin-top:18px">
-        <button type="button" class="ghost" id="del" hidden>Delete</button>
-        <div class="act" style="margin-left:auto">
-          <button type="button" class="ghost" data-a="close">Cancel</button>
-          <button type="submit">Save medicine</button>
-        </div>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="ds">
-    <div class="scanner">
-      <h2 style="margin-top:0">Scan expiry date</h2>
-      <video id="scanner-video" autoplay muted playsinline></video>
-      <p id="scan-status" class="mu">
-        Point the camera at the printed expiry date. Keep it steady and well lit.
-      </p>
-      <div class="act" style="justify-content:flex-end">
-        <button type="button" class="ghost" data-a="close-scan">Cancel</button>
-      </div>
+<dialog id="dm">
+  <form id="mf">
+    <h2 id="mt" style="margin-top:0">Add medicine</h2>
+    <input type="hidden" name="mid">
+    <label for="nm">Medicine name</label><input id="nm" name="nm" required placeholder="e.g. Metformin">
+    <div class="two">
+      <div><label for="str">Strength</label><input id="str" name="str" placeholder="500 mg"></div>
+      <div><label for="exp">Expiry (month and year)</label><input id="exp" name="exp" type="month" required placeholder="YYYY-MM"></div>
+      <div><label for="qty">Units in stock</label><input id="qty" name="qty" type="number" min="0" step="any" required></div>
+      <div><label for="dose">Units per dose</label><input id="dose" name="dose" type="number" min="0.25" step="any" value="1"></div>
     </div>
-  </dialog>
+    <div class="act" style="justify-content:flex-start;margin-top:10px"><button type="button" class="ghost" id="scanbtn">Scan expiry date from a photo</button></div>
+    <input type="file" id="scanfile" accept="image/*" capture="environment" hidden>
+    <p class="mu" id="scanmsg" role="status" style="margin:6px 0 0"></p>
+    <label class="inl"><input type="checkbox" id="prn" name="prn"> Only when needed (no fixed times)</label>
+    <div id="prnbox" hidden><label for="gap">Minimum gap between doses (hours)</label><input id="gap" name="gap" type="number" min="0.5" step="any" placeholder="Take from the pack or your doctor"></div>
+    <div id="schedbox">
+    <label>Take at (add as many times as you need)</label>
+    <div id="times"></div>
+    <div class="act" style="justify-content:flex-start;margin-top:6px">
+      <button type="button" class="ghost" data-a="addtime">+ Add a time</button>
+      <button type="button" class="ghost" data-a="quick" data-t="08:00">+ Morning</button>
+      <button type="button" class="ghost" data-a="quick" data-t="14:00">+ Afternoon</button>
+      <button type="button" class="ghost" data-a="quick" data-t="21:00">+ Night</button>
+    </div></div>
+    <label for="notes">Note</label><input id="notes" name="notes" placeholder="After food">
+    <div class="row" style="margin-top:18px">
+      <button type="button" class="ghost" id="del" hidden>Delete</button>
+      <div class="act" style="margin-left:auto"><button type="button" class="ghost" data-a="close">Cancel</button><button type="submit">Save medicine</button></div>
+    </div>
+  </form>
+</dialog>
 
-  <dialog id="dp">
-    <form id="pf">
-      <h2 style="margin-top:0">Add family member</h2>
-      <label for="pn">Name</label>
-      <input id="pn" name="pn" required placeholder="e.g. Dad">
+<dialog id="dp">
+  <form id="pf">
+    <h2 style="margin-top:0">Add family member</h2>
+    <label for="pn">Name</label><input id="pn" name="pn" required placeholder="e.g. Dad">
+    <label for="pr">Relation</label><input id="pr" name="pr" placeholder="Father">
+    <div class="act" style="margin-top:18px;justify-content:flex-end"><button type="button" class="ghost" data-a="close">Cancel</button><button type="submit">Save person</button></div>
+  </form>
+</dialog>
 
-      <label for="pr">Relation</label>
-      <input id="pr" name="pr" placeholder="Father">
-
-      <div class="act" style="margin-top:18px;justify-content:flex-end">
-        <button type="button" class="ghost" data-a="close">Cancel</button>
-        <button type="submit">Save person</button>
-      </div>
-    </form>
-  </dialog>
-
-  <div id="print"></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="script.js"></script>
+<div id="print"></div>
+<script src="config.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
