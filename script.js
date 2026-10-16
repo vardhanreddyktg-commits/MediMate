@@ -25,9 +25,10 @@ function alerts(){
     const n=pname(m.profileId),d=dleft(m.expiry),s=supply(m);
     if(d<0)out.push(['bad',`${m.name} (${n}) has expired. Dispose of it safely.`]);
     else if(d<=30)out.push(['warn',`${m.name} (${n}) expires in ${d} day${d===1?'':'s'}.`]);
-    if(s!==null&&s<=5)out.push(['warn',`${m.name} (${n}) has ${s} day${s===1?'':'s'} of stock left. Time to refill.`]);
+    if(m.qty<=0)out.push(['bad',`${m.name} (${n}) is out of stock.`,m.id]);
+    else if(s!==null&&s<=5)out.push(['warn',`${m.name} (${n}) has ${s} day${s===1?'':'s'} of stock left. Time to refill.`,m.id]);
   });
-  return out.length?`<div class="card alerts">${out.map(([c,t])=>`<div class="al ${c}">${esc(t)}</div>`).join('')}</div>`:'';
+  return out.length?`<div class="card alerts">${out.map(([c,t,id])=>`<div class="al ${c}"><span>${esc(t)}</span>${id?`<button class="ghost" data-a="pharm" data-m="${id}">Find pharmacy</button>`:''}</div>`).join('')}</div>`:'';
 }
 function stats(meds,days=7){
   const ids=new Set(meds.map(m=>m.id));let planned=0,taken=0;
@@ -83,7 +84,7 @@ function card(m){
   return `<div class="card row s-${stat(m)}"><div><b>${esc(m.name)}</b> <span class="mu">${esc(m.strength)}</span>
   <div class="mu">Expires ${m.expiry.slice(0,7)}, ${d<0?Math.abs(d)+' days ago':d+' days left'}</div>
   <div class="mu">${m.qty} in stock${s!==null?', about '+s+' days of supply':''}</div>
-  <div class="mu">${esc(medLine(m))}</div></div>
+  <div class="mu">${esc(medLine(m))}</div>${needStock(m)?`<div style="margin-top:8px"><button class="ghost" data-a="pharm" data-m="${m.id}">Find pharmacy</button></div>`:''}</div>
   <button class="ghost" data-a="edit" data-m="${m.id}">Edit</button></div>`;
 }
 let cabQ='',cabSort='expiry';
@@ -176,6 +177,7 @@ document.addEventListener('click',e=>{
   else if(a==='prn-undo')undoPrn(b.dataset.m);
   else if(a==='print')printSummary();
   else if(a==='wa')shareWA();
+  else if(a==='pharm')openPharm(b.dataset.m);
 });
 
 /* ---------- Reminders ---------- */
@@ -272,6 +274,46 @@ function shareWA(){
   const lines=meds.map((m,n)=>(n+1)+'. '+m.name+(m.strength?' '+m.strength:'')+': '+medLine(m)+(m.notes?' ('+m.notes+')':''));
   const t='Medicines for '+p.name+(p.rel?' ('+p.rel+')':'')+'\n'+(lines.join('\n')||'No medicines added.')+'\n\nSent from MediMate';
   window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank');
+}
+
+/* ---------- Nearby pharmacies ---------- */
+const needStock=m=>m.qty<=0||(supply(m)!==null&&supply(m)<=5);
+const tel=p=>String(p||'').replace(/[^\d+]/g,'');
+const km=(a,b,c,d)=>{const r=x=>x*Math.PI/180,h=Math.sin(r(c-a)/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(r(d-b)/2)**2;return 12742*Math.asin(Math.sqrt(h))};
+function openPharm(mid){
+  const m=S.meds.find(x=>x.id===mid);
+  $('#phtitle').textContent=m?(m.name+(m.qty<=0?' is out of stock':' is running low')):'Nearby pharmacies';
+  $('#phlist').innerHTML='';$('#phmsg').textContent='Finding your location...';
+  $('#phmaps').href='https://www.google.com/maps/search/?api=1&query=pharmacy%20near%20me';
+  $('#dph').showModal();
+  if(!navigator.geolocation){$('#phmsg').textContent='This browser cannot share your location. Use the Google Maps button.';return}
+  navigator.geolocation.getCurrentPosition(p=>findPharm(p.coords.latitude,p.coords.longitude),
+    e=>{$('#phmsg').textContent=e.code===1?'Location permission was denied. Allow location for this site, or use the Google Maps button.':'Could not get your location. Use the Google Maps button.'},
+    {enableHighAccuracy:false,timeout:15000,maximumAge:300000});
+}
+async function findPharm(lat,lon){
+  $('#phmaps').href='https://www.google.com/maps/search/pharmacy/@'+lat+','+lon+',15z';
+  $('#phmsg').textContent='Looking for pharmacies near you...';
+  for(const r of [3000,8000]){
+    try{
+      const q='[out:json][timeout:20];(node["amenity"="pharmacy"](around:'+r+','+lat+','+lon+');way["amenity"="pharmacy"](around:'+r+','+lat+','+lon+'););out center 40;';
+      const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'data='+encodeURIComponent(q)});
+      if(!res.ok)throw new Error('bad response');
+      const items=(await res.json()).elements.map(e=>{
+        const c=e.center||{},la=e.lat!=null?e.lat:c.lat,lo=e.lon!=null?e.lon:c.lon,t=e.tags||{};
+        return {name:t.name||'Pharmacy (name not listed)',la,lo,d:km(lat,lon,la,lo),
+          addr:[t['addr:housenumber'],t['addr:street'],t['addr:suburb']||t['addr:city']].filter(Boolean).join(', '),
+          phone:t.phone||t['contact:phone']||'',hours:t.opening_hours||''};
+      }).filter(x=>x.la!=null&&x.lo!=null).sort((a,b)=>a.d-b.d).slice(0,8);
+      if(items.length){showPharm(items);return}
+    }catch(e){$('#phmsg').textContent='Could not load pharmacies right now. Use the Google Maps button.';return}
+  }
+  $('#phmsg').textContent='No pharmacies found within 8 km in the map data. Map data can be incomplete, so try the Google Maps button.';
+}
+function showPharm(items){
+  $('#phmsg').textContent='Closest pharmacies (map data from OpenStreetMap). Call to confirm they have your medicine.';
+  $('#phlist').innerHTML=items.map(x=>`<div class="card" style="margin:8px 0"><b>${esc(x.name)}</b> <span class="mu">${x.d<1?Math.round(x.d*1000)+' m':x.d.toFixed(1)+' km'}</span>${x.addr?`<div class="mu">${esc(x.addr)}</div>`:''}${x.hours?`<div class="mu">Hours: ${esc(x.hours)}</div>`:''}
+    <div class="act" style="justify-content:flex-start;margin-top:8px"><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${x.la},${x.lo}">Directions</a>${tel(x.phone)?`<a class="btn ghostbtn" href="tel:${tel(x.phone)}">Call</a>`:''}</div></div>`).join('');
 }
 
 /* ---------- Cabinet search and sort ---------- */
