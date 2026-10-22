@@ -94,6 +94,19 @@
   <div class="act" style="margin-top:12px;justify-content:space-between"><a class="btn" id="phmaps" target="_blank" rel="noopener" href="#">Open Google Maps</a><button type="button" class="ghost" data-a="close">Close</button></div>
 </dialog>
 
+<dialog id="dop">
+  <h2 style="margin-top:0">Book OP</h2>
+  <p class="mu" style="margin:0 0 8px">Emergency? Call 112 now instead of using this page.</p>
+  <label for="opq">What is the problem?</label>
+  <div class="act" style="flex-wrap:nowrap"><input id="opq" placeholder="e.g. diabetes, knee pain, skin rash" autocomplete="off"><button type="button" data-a="opgo">Find</button></div>
+  <div class="chips" id="opchips"></div>
+  <button type="button" class="ghost" id="opmore" data-a="opmore" hidden>Choose another problem</button>
+  <p class="mu" id="opmsg" role="status"></p>
+  <div id="oplist"></div>
+  <p class="mu" style="font-size:.8rem">What you type stays on this device. Your location is used only for this search and is not saved. MediMate cannot book appointments for you: call the hospital or use its website.</p>
+  <div class="act" style="margin-top:12px;justify-content:space-between"><a class="btn" id="opmaps" target="_blank" rel="noopener" href="#">Open Google Maps</a><button type="button" class="ghost" data-a="close">Close</button></div>
+</dialog>
+
 <div id="print"></div>
 <script src="config.js"></script>
 <script src="script.js"></script>
