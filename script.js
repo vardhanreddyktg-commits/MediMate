@@ -99,7 +99,7 @@ function cabList(){
 function cabinetView(){
   const o=(v,t)=>`<option value="${v}" ${cabSort===v?'selected':''}>${t}</option>`;
   return `<div class="two" style="margin-top:6px"><input id="q" type="search" placeholder="Search medicines" value="${esc(cabQ)}" aria-label="Search medicines"><select id="sort" aria-label="Sort by" style="width:100%">${o('expiry','Sort: expiry date')}${o('name','Sort: name A to Z')}${o('stock','Sort: lowest stock')}</select></div>
-  <div class="act" style="justify-content:flex-start;margin:10px 0"><button class="ghost" data-a="print">Print summary</button><button class="ghost" data-a="wa">Share on WhatsApp</button></div>
+  <div class="act" style="justify-content:flex-start;margin:10px 0"><button data-a="op">Book OP</button><button class="ghost" data-a="print">Print summary</button><button class="ghost" data-a="wa">Share on WhatsApp</button></div>
   <div id="cablist">${cabList()}</div>`;
 }
 function render(){
@@ -178,6 +178,10 @@ document.addEventListener('click',e=>{
   else if(a==='print')printSummary();
   else if(a==='wa')shareWA();
   else if(a==='pharm')openPharm(b.dataset.m);
+  else if(a==='op')openOP();
+  else if(a==='opdept')opRun(DEPTS[+b.dataset.d]);
+  else if(a==='opgo')opFromText();
+  else if(a==='opmore'){$('#opchips').hidden=false;$('#opmore').hidden=true;$('#oplist').innerHTML='';$('#opmsg').textContent='Pick a problem or type it in your own words.'}
 });
 
 /* ---------- Reminders ---------- */
@@ -314,6 +318,88 @@ function showPharm(items){
   $('#phmsg').textContent='Closest pharmacies (map data from OpenStreetMap). Call to confirm they have your medicine.';
   $('#phlist').innerHTML=items.map(x=>`<div class="card" style="margin:8px 0"><b>${esc(x.name)}</b> <span class="mu">${x.d<1?Math.round(x.d*1000)+' m':x.d.toFixed(1)+' km'}</span>${x.addr?`<div class="mu">${esc(x.addr)}</div>`:''}${x.hours?`<div class="mu">Hours: ${esc(x.hours)}</div>`:''}
     <div class="act" style="justify-content:flex-start;margin-top:8px"><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${x.la},${x.lo}">Directions</a>${tel(x.phone)?`<a class="btn ghostbtn" href="tel:${tel(x.phone)}">Call</a>`:''}</div></div>`).join('');
+}
+
+/* ---------- Book OP: hospitals for a health problem ---------- */
+// k = words people type, osm = specialty names used in OpenStreetMap, w = words that show up in hospital names
+const DEPTS=[
+ {n:'Heart and blood pressure',k:['hearts?\\b','cardi','chest pain','blood pressure','hypertension','cholesterol','bp\\b','palpitation'],osm:['cardiology'],w:/heart|cardi/i},
+ {n:'Diabetes and thyroid',k:['diabet','sugar','thyroid','hormone','endocr'],osm:['endocrinology','diabetology'],w:/diabet|endocr|thyroid/i},
+ {n:'Brain and nerves',k:['neuro','brain','headache','migraine','stroke','epilep','seizure','paralysis','nerve'],osm:['neurology','neurosurgery'],w:/neuro|brain/i},
+ {n:'Bones and joints',k:['bone','joint','ortho','fracture','arthritis','back pain','knee','spine','shoulder','neck pain'],osm:['orthop'],w:/ortho|bone|joint|spine/i},
+ {n:'Skin and hair',k:['skin','derma','rash','acne','eczema','itch','hair'],osm:['dermatology'],w:/skin|derma/i},
+ {n:'Eye',k:['eye','vision','cataract','glasses','ophthal'],osm:['ophthalmology'],w:/\beye\b|ophth|vision|netra|lasik/i},
+ {n:'Ear, nose and throat',k:['ear\\b','nose','throat','sinus','tonsil','hearing','ent\\b'],osm:['otolaryngology','ent'],w:/\bent\b|e\.n\.t|\bear\b|throat/i},
+ {n:'Child health',k:['child','kids?\\b','baby','infant','paed','pedi','newborn'],osm:['paediatrics','pediatrics'],w:/child|paed|pedi|kids|baby|newborn/i},
+ {n:"Women's health and pregnancy",k:['pregnan','gyn','period','women','maternity','pcod','pcos','delivery','menopause'],osm:['gynaecology','gynecology','obstetrics'],w:/women|mother|matern|gyn|fertil|ivf|obstet/i},
+ {n:'Mental health',k:['depress','anxiety','stress','mental','psych','panic','addiction'],osm:['psychiatry'],w:/\bmind\b|mental|psych|de-?addict/i},
+ {n:'Teeth and gums',k:['tooth','teeth','dental','gum','dentist'],osm:['dentistry','dental'],w:/dent|tooth|teeth/i},
+ {n:'Kidney and urine',k:['kidney','renal','urine','urinary','stone','uro','prostate','dialysis'],osm:['nephrology','urology'],w:/kidney|renal|nephro|\buro|dialysis/i},
+ {n:'Stomach and liver',k:['stomach','gastro','liver','acid','ulcer','digest','jaundice','piles','hepat','vomit','heartburn'],osm:['gastroenterology','hepatology'],w:/gastro|liver|hepat|digest/i},
+ {n:'Lungs and asthma',k:['lung','asthma','cough','breath','tb\\b','tuberculosis','copd','chest'],osm:['pulmonology','respiratory'],w:/lung|chest|pulmo|respir|asthma/i},
+ {n:'Cancer',k:['cancer','tumor','tumour','oncolog','chemo'],osm:['oncology'],w:/cancer|onco|tumou?r|radiat/i},
+ {n:'General medicine',k:['fever','cold','flu','infection','general','viral','weakness','body pain'],osm:['general','internal'],w:null}
+];
+const GENERAL=DEPTS[DEPTS.length-1];
+function pickDept(t){
+  const s=String(t).toLowerCase().trim();
+  return DEPTS.find(d=>new RegExp('\\b('+d.k.join('|')+')','i').test(s))||null;
+}
+function openOP(){
+  $('#opq').value='';$('#oplist').innerHTML='';
+  $('#opchips').innerHTML=DEPTS.map((d,i)=>`<button type="button" class="ghost" data-a="opdept" data-d="${i}">${esc(d.n)}</button>`).join('');
+  $('#opchips').hidden=false;$('#opmore').hidden=true;
+  $('#opmsg').textContent='Type the problem in your own words, or pick one below.';
+  $('#opmaps').href='https://www.google.com/maps/search/?api=1&query=hospital%20near%20me';
+  $('#dop').showModal();
+}
+function opFromText(){
+  const t=$('#opq').value.trim();
+  if(!t){$('#opmsg').textContent='Type the problem first, or pick one below.';return}
+  const d=pickDept(t);opRun(d||GENERAL,d?'':t);
+}
+$('#opq').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();opFromText()}};
+const safeUrl=u=>/^https?:\/\//i.test(u||'')?u:'';
+async function opRun(d,unmatched){
+  $('#oplist').innerHTML='';$('#opchips').hidden=true;$('#opmore').hidden=false;
+  const intro=unmatched?'Could not match "'+unmatched+'" to a department, so showing general hospitals. ':'Looking for: '+d.n+'. ';
+  $('#opmsg').textContent=intro+'Finding your location...';
+  $('#opmaps').href='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(d.n+' hospital near me');
+  let pos;
+  try{pos=await new Promise((ok,no)=>{if(!navigator.geolocation)return no({code:0});navigator.geolocation.getCurrentPosition(ok,no,{timeout:15000,maximumAge:300000})})}
+  catch(e){$('#opmsg').textContent=e&&e.code===1?'Location permission was denied. Allow location for this site, or use the Google Maps button.':'Could not get your location. Use the Google Maps button.';return}
+  const lat=pos.coords.latitude,lon=pos.coords.longitude;
+  $('#opmaps').href='https://www.google.com/maps/search/'+encodeURIComponent(d.n+' hospital')+'/@'+lat+','+lon+',13z';
+  $('#opmsg').textContent=intro+'Looking for hospitals near you...';
+  const am=d.n==='Teeth and gums'?'hospital|clinic|dentist':'hospital|clinic';
+  for(const r of [5000,15000]){
+    try{
+      const q='[out:json][timeout:25];(node["amenity"~"^('+am+')$"](around:'+r+','+lat+','+lon+');way["amenity"~"^('+am+')$"](around:'+r+','+lat+','+lon+'););out center tags 120;';
+      const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'data='+encodeURIComponent(q)});
+      if(!res.ok)throw new Error('bad response');
+      const items=((await res.json()).elements||[]).map(e=>{
+        const c=e.center||{},la=e.lat!=null?e.lat:c.lat,lo=e.lon!=null?e.lon:c.lon,t=e.tags||{};
+        const sp=((t['healthcare:speciality']||'')+';'+(t.speciality||'')).toLowerCase();
+        const tagHit=d.osm.some(o=>sp.includes(o)),nameHit=!!(d.w&&d.w.test(t.name||'')),hosp=t.amenity==='hospital';
+        const score=tagHit?3:nameHit?2:(t.amenity==='dentist'&&d.n==='Teeth and gums')?2:d===GENERAL?(hosp?2:1):hosp?1:0;
+        return {name:t.name||'',hosp,la,lo,score,tagHit,nameHit,d:km(lat,lon,la,lo),
+          addr:[t['addr:housenumber'],t['addr:street'],t['addr:suburb']||t['addr:city']].filter(Boolean).join(', '),
+          phone:t.phone||t['contact:phone']||'',web:safeUrl(t.website||t['contact:website']),hours:t.opening_hours||''};
+      }).filter(x=>x.la!=null&&x.lo!=null&&(x.name||x.hosp)).sort((a,b)=>b.score-a.score||a.d-b.d).slice(0,10);
+      if(items.length){showOP(items,d,intro);return}
+    }catch(e){$('#opmsg').textContent='Could not load hospitals right now. Use the Google Maps button.';return}
+  }
+  $('#opmsg').textContent='No hospitals found within 15 km in the map data. Map data can be incomplete, so try the Google Maps button.';
+}
+function showOP(items,d,intro){
+  const hits=items.filter(x=>x.score>=2).length;
+  $('#opmsg').textContent=intro+(d===GENERAL?'Closest hospitals first. ':hits?'Hospitals that list or are named for this come first. ':'No hospital is listed for this in the map data, so these are the closest hospitals. Ask whether they have this OP. ')+'Call or use the website to book. Map data is from OpenStreetMap.';
+  $('#oplist').innerHTML=items.map(x=>{
+    const why=x.tagHit?'Lists '+d.n:x.nameHit?'Name suggests '+d.n:x.hosp?'Hospital: ask if they have this OP':'Clinic';
+    return `<div class="card" style="margin:8px 0"><b>${esc(x.name||'Hospital (name not listed)')}</b> <span class="mu">${x.d<1?Math.round(x.d*1000)+' m':x.d.toFixed(1)+' km'}</span>
+    <div class="mu">${esc(why)}</div>${x.addr?`<div class="mu">${esc(x.addr)}</div>`:''}${x.hours?`<div class="mu">Hours: ${esc(x.hours)}</div>`:''}
+    <div class="act" style="justify-content:flex-start;margin-top:8px">${tel(x.phone)?`<a class="btn" href="tel:${tel(x.phone)}">Call to book</a>`:''}${x.web?`<a class="btn ghostbtn" target="_blank" rel="noopener" href="${esc(x.web)}">Website</a>`:''}<a class="btn ghostbtn" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${x.la},${x.lo}">Directions</a></div></div>`;
+  }).join('');
 }
 
 /* ---------- Cabinet search and sort ---------- */
