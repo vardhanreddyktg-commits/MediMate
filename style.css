@@ -70,3 +70,6 @@ body.booting .authbox>:not(h1):not(#boot){display:none}
 .al button{padding:6px 10px;font-size:.85rem}
 a.btn{display:inline-block;background:var(--pri);color:var(--onpri);font-weight:700;padding:10px 16px;border-radius:10px;text-decoration:none}
 a.btn.ghostbtn{background:transparent;color:var(--pri);border:1.5px solid var(--bd)}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.chips button{padding:6px 12px;font-size:.88rem;border-radius:99px}
